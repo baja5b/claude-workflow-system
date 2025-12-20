@@ -1,0 +1,16 @@
+[Unit]
+Description=MusicTrackers Telegram Workflow Bot
+After=network.target workflow-api.service
+Wants=workflow-api.service
+
+[Service]
+Type=simple
+User=mcp
+WorkingDirectory=/opt/workflow-system/telegram-bot
+ExecStart=/opt/workflow-system/venv/bin/python /opt/workflow-system/telegram-bot/bot.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
