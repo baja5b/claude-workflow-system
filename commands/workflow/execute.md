@@ -4,45 +4,83 @@ Führe den nächsten Task im Workflow aus.
 
 ## Anweisungen
 
-### 1. Aktuellen Task laden
+### 1. Aktuellen Workflow und Tasks laden
 
-```sql
-SELECT * FROM tasks
-WHERE workflow_id = '{workflow_id}'
-AND status = 'PENDING'
-ORDER BY sequence ASC
-LIMIT 1;
+```
+Tool: workflow_list_active
 ```
 
-### 2. Task ausführen
+Wähle den Workflow im Status `CONFIRMED` oder `EXECUTING`.
 
-1. Setze Task-Status auf 'IN_PROGRESS'
-2. Führe die Implementierung durch
-3. Nutze TodoWrite für Fortschritt-Tracking
-4. Bei Erfolg: Status = 'COMPLETED'
-5. Bei Fehler: Status = 'FAILED', error_message speichern
-
-### 3. Progress-Update
-
-Nach jedem Task:
-
-```sql
-UPDATE tasks
-SET status = 'COMPLETED',
-    completed_at = CURRENT_TIMESTAMP,
-    result = '{json_result}'
-WHERE workflow_id = '{workflow_id}'
-AND sequence = {current_sequence};
+```
+Tool: workflow_get
+Arguments:
+  workflow_id: {ID}
 ```
 
-### 4. Nächster Task oder Abschluss
+```
+Tool: workflow_get_tasks
+Arguments:
+  workflow_id: {ID}
+```
+
+### 2. Nächsten pending Task identifizieren
+
+Finde den ersten Task mit Status `PENDING` (niedrigste sequence).
+
+### 3. Task starten
+
+```
+Tool: workflow_update_task
+Arguments:
+  task_id: {task_id}
+  status: IN_PROGRESS
+```
+
+### 4. Task ausführen
+
+1. Führe die Implementierung durch
+2. Nutze TodoWrite für Fortschritt-Tracking
+3. **Coding-Standards beachten:**
+   - Logging hinzufügen wo sinnvoll
+   - Keine Inline-Styles
+   - Komponenten wiederverwenden
+   - Commit-Format: `type: description (fixes #issue)`
+
+### 5. Task abschließen
+
+Bei Erfolg:
+```
+Tool: workflow_update_task
+Arguments:
+  task_id: {task_id}
+  status: COMPLETED
+  result: "{beschreibung_was_gemacht_wurde}"
+```
+
+Bei Fehler:
+```
+Tool: workflow_update_task
+Arguments:
+  task_id: {task_id}
+  status: FAILED
+  error_message: "{fehler_beschreibung}"
+```
+
+### 6. Nächster Task oder Abschluss
 
 Falls weitere Tasks pending:
 - Fahre automatisch mit nächstem Task fort
 
 Falls alle Tasks completed:
-- Setze Workflow-Status auf 'TESTING'
-- Führe /workflow-test aus
+```
+Tool: workflow_update
+Arguments:
+  workflow_id: {ID}
+  status: TESTING
+```
+
+Dann automatisch `/workflow:test` ausführen.
 
 ### Ausgabe-Format
 
@@ -78,3 +116,9 @@ Optionen:
 - `--skip`: Aktuellen Task überspringen (Status = 'SKIPPED')
 - `--retry`: Fehlgeschlagenen Task erneut versuchen
 - `--force`: Alle pending Tasks ausführen ohne Pause
+
+## Wichtig
+
+- **Bestehende Strukturen nutzen:** Prüfe vor jeder Änderung ob Code wiederverwendet werden kann
+- **Keine Duplikate:** Erweitere bestehende Module statt neue zu erstellen
+- **Tests nicht vergessen:** Bei größeren Änderungen E2E-Tests ergänzen

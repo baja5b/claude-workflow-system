@@ -4,6 +4,14 @@ Entferne deprecated Code, ungenutzte Dateien und bereinige das Projekt.
 
 ## Anweisungen
 
+### 0. Aktuellen Workflow laden
+
+```
+Tool: workflow_list_active
+```
+
+Wähle den Workflow im Status `COMPLETED` oder `TESTING`.
+
 ### 1. Analyse durchführen
 
 **Ungenutzte Exporte finden:**
@@ -70,11 +78,37 @@ Nach Bestätigung:
 - Führe Formatter aus
 - Führe Tests aus zur Validierung
 
-### 5. Dokumentation
+### 5. Cleanup dokumentieren
 
-```sql
-INSERT INTO tasks (workflow_id, sequence, description, status, result)
-VALUES ('{workflow_id}', {next_seq}, 'Cleanup: {summary}', 'COMPLETED', '{removed_items}');
+```
+Tool: workflow_add_task
+Arguments:
+  workflow_id: {ID}
+  sequence: {next_seq}
+  description: "Cleanup: {summary}"
+```
+
+```
+Tool: workflow_update_task
+Arguments:
+  task_id: {task_id}
+  status: COMPLETED
+  result: "{removed_items}"
+```
+
+### 6. Telegram-Benachrichtigung
+
+```
+Tool: telegram_send
+Arguments:
+  message: |
+    🧹 *Cleanup abgeschlossen*
+
+    *Workflow:* `{workflow_id}`
+    *Entfernt:* {lines_removed} Zeilen
+    *Dateien:* {files_deleted} gelöscht, {files_modified} modifiziert
+
+    ✅ Tests bestanden
 ```
 
 ## Ausgabe-Format

@@ -6,13 +6,22 @@ Generiere automatisch Dokumentation für den abgeschlossenen Workflow.
 
 ### 1. Workflow-Daten laden
 
-```sql
-SELECT w.*,
-       GROUP_CONCAT(t.description, '; ') as tasks_completed
-FROM workflows w
-JOIN tasks t ON w.workflow_id = t.workflow_id
-WHERE w.workflow_id = '{workflow_id}'
-AND t.status = 'COMPLETED';
+```
+Tool: workflow_list_active
+```
+
+Wähle den Workflow im Status `TESTING` oder `COMPLETED`.
+
+```
+Tool: workflow_get
+Arguments:
+  workflow_id: {ID}
+```
+
+```
+Tool: workflow_get_tasks
+Arguments:
+  workflow_id: {ID}
 ```
 
 ### 2. Git History analysieren
@@ -54,22 +63,52 @@ git diff --stat HEAD~{commit_count}..HEAD
 
 ### 5. Workflow finalisieren
 
-```sql
-UPDATE workflows
-SET status = 'COMPLETED',
-    completed_at = CURRENT_TIMESTAMP
-WHERE workflow_id = '{workflow_id}';
+```
+Tool: workflow_update
+Arguments:
+  workflow_id: {ID}
+  status: COMPLETED
 ```
 
-### 6. Notification
+### 6. Telegram-Benachrichtigung
 
 ```
-✅ Workflow abgeschlossen
-Projekt: {project}
-Workflow: {workflow_id}
-Dauer: {duration}
-Tasks: {completed_tasks}/{total_tasks}
-Tests: {passed_tests}/{total_tests}
+Tool: telegram_send
+Arguments:
+  message: |
+    📝 *Dokumentation erstellt*
+
+    *Workflow:* `{workflow_id}`
+    *Projekt:* {project}
+    *Titel:* {title}
+
+    📊 *Statistiken:*
+    - Dateien: {files_changed}
+    - Zeilen: +{lines_added} / -{lines_removed}
+    - Dauer: {duration}
+
+    ✅ Workflow abgeschlossen!
+```
+
+### 7. PR erstellen (falls auf Feature-Branch)
+
+```bash
+# Prüfe ob auf Feature-Branch
+git branch --show-current
+
+# Falls nicht main/develop, erstelle PR
+gh pr create --base develop --title "{title}" --body "$(cat <<'EOF'
+## Summary
+{changelog_entry}
+
+## Test plan
+- [x] Lokale Tests bestanden
+- [x] Dev-Server Tests bestanden
+- [x] 4-Augen Review bestanden
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
 ```
 
 ## Ausgabe-Format

@@ -4,43 +4,106 @@ Bestätige den aktuellen Workflow-Plan und starte die Ausführung.
 
 ## Anweisungen
 
-Der User hat den Plan bestätigt. Führe folgende Schritte aus:
+### Schritt 1: Aktiven Workflow laden
 
-### 1. Status-Update
-
-```sql
-UPDATE workflows
-SET status = 'CONFIRMED', updated_at = CURRENT_TIMESTAMP
-WHERE workflow_id = '{current_workflow_id}'
-AND status = 'PLANNING';
+Hole den aktiven Workflow mit dem MCP-Tool:
+```
+Tool: workflow_list_active
 ```
 
-### 2. Tasks erstellen
+Wähle den neuesten Workflow im Status `PLANNING`.
 
-Falls noch nicht vorhanden, erstelle Tasks aus dem Plan:
-
-```sql
-INSERT INTO tasks (workflow_id, sequence, description, status)
-VALUES
-    ('{workflow_id}', 1, '{task_1}', 'PENDING'),
-    ('{workflow_id}', 2, '{task_2}', 'PENDING'),
-    ...;
-```
-
-### 3. Notification
+### Schritt 2: Workflow-Details anzeigen
 
 ```
-✅ Plan bestätigt
-Workflow: {workflow_id}
-Tasks: {total_tasks}
-Starte Ausführung...
+Tool: workflow_get
+Arguments:
+  workflow_id: {ID aus Schritt 1}
 ```
 
-### 4. Ausführung starten
+### Schritt 3: Plan zusammenfassen
 
-- Setze Status auf 'EXECUTING'
-- Starte mit Task 1
-- Führe /workflow-execute automatisch aus
+Zeige dem User:
+```
+=== WORKFLOW BESTÄTIGUNG ===
+ID: {workflow_id}
+Titel: {title}
+
+=== PLAN ===
+{plan als lesbare Liste}
+
+=== TASKS ({anzahl}) ===
+1. {task_1}
+2. {task_2}
+...
+
+Implementierung bestätigen? (Der User hat bereits bestätigt durch Aufruf dieses Skills)
+```
+
+### Schritt 4: Status auf CONFIRMED setzen
+
+```
+Tool: workflow_update
+Arguments:
+  workflow_id: {ID}
+  status: CONFIRMED
+```
+
+### Schritt 5: Telegram-Benachrichtigung
+
+```
+Tool: telegram_send
+Arguments:
+  message: |
+    ✅ *Plan bestätigt*
+
+    *ID:* `{workflow_id}`
+    *Projekt:* {project}
+    *Tasks:* {task_count}
+
+    Starte Implementierung...
+```
+
+### Schritt 6: Ersten Task starten
+
+Setze Status auf EXECUTING und starte den ersten Task:
+
+```
+Tool: workflow_update
+Arguments:
+  workflow_id: {ID}
+  status: EXECUTING
+```
+
+Hole die Tasks:
+```
+Tool: workflow_get_tasks
+Arguments:
+  workflow_id: {ID}
+```
+
+Setze ersten Task auf IN_PROGRESS:
+```
+Tool: workflow_update_task
+Arguments:
+  task_id: {erste task_id}
+  status: IN_PROGRESS
+```
+
+### Schritt 7: Implementierung durchführen
+
+Führe nun die eigentliche Implementierung durch:
+1. Bearbeite jeden Task in Reihenfolge
+2. Nutze TodoWrite für Fortschritt-Tracking
+3. Nach jedem Task: Status auf COMPLETED setzen
+4. Bei Fehler: Status auf FAILED mit error_message
+
+**Coding-Standards beachten:**
+- Logging hinzufügen wo sinnvoll
+- Keine Inline-Styles (zentrales UX-Design)
+- Komponenten wiederverwenden
+- Security beachten (keine Secrets im Code, OWASP Top 10)
+- Commit-Format: `type: description (fixes #issue)`
 
 ## Ausgabe-Format
 
@@ -53,20 +116,16 @@ Starte Ausführung von {total_tasks} Tasks...
 [1/{total}] {task_1}...
 ```
 
-## Abbruch-Option
+## Bei Ablehnung
 
-Falls der User den Plan ablehnt (z.B. "nein", "abbrechen"):
-
-```sql
-UPDATE workflows
-SET status = 'REJECTED', updated_at = CURRENT_TIMESTAMP
-WHERE workflow_id = '{workflow_id}';
+Falls der User den Plan ablehnt:
+```
+Tool: workflow_update
+Arguments:
+  workflow_id: {ID}
+  status: REJECTED
 ```
 
-```
-=== WORKFLOW ABGELEHNT ===
-Der Plan wurde nicht bestätigt.
+## Workflow-Flow
 
-Starte erneut mit:
-/workflow-start "Neue Beschreibung"
-```
+`PLANNING` → `CONFIRMED` → `EXECUTING` → `TESTING` → `COMPLETED`
