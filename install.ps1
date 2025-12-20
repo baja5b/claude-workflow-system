@@ -76,7 +76,7 @@ if (-not (Test-Path $CommandsTarget)) {
 # Install MCP servers
 Write-Host "Installing MCP servers..." -ForegroundColor Green
 
-$mcpServers = @("docker-mcp", "scripts-mcp", "telegram-mcp")
+$mcpServers = @("docker-mcp", "scripts-mcp", "telegram-mcp", "workflow-mcp", "test-runner-mcp")
 foreach ($server in $mcpServers) {
     $sourceDir = Join-Path $McpServersSource $server
     $targetDir = Join-Path $McpServersTarget $server
@@ -143,6 +143,14 @@ $mcpConfig = @{
         telegram = @{
             command = "python"
             args = @("$McpServersTarget\telegram-mcp\server.py")
+        }
+        workflow = @{
+            command = "python"
+            args = @("$McpServersTarget\workflow-mcp\server.py")
+        }
+        "test-runner" = @{
+            command = "python"
+            args = @("$McpServersTarget\test-runner-mcp\server.py")
         }
     }
 }
