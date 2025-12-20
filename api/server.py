@@ -93,6 +93,15 @@ def root():
     return {"status": "ok", "service": "Workflow API"}
 
 
+@app.get("/health")
+def health():
+    """Health check endpoint."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT 1")
+        cursor.fetchone()
+    return {"status": "healthy", "version": "1.0.0", "database": "connected"}
+
+
 @app.get("/workflows")
 def list_workflows(status: Optional[str] = None, project: Optional[str] = None):
     """List all workflows, optionally filtered."""
