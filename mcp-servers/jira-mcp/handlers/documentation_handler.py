@@ -6,7 +6,7 @@ When an issue enters DOCUMENTATION status:
 1. Generate documentation for the changes
 2. Update relevant docs/README files
 3. Finalize PR (if GitHub sync enabled)
-4. Transition to DONE
+4. Auto-transition to DONE
 """
 
 from typing import Dict, Any
@@ -19,7 +19,7 @@ from jira_client import JiraClient
 
 async def handle(issue: Dict[str, Any], jira: JiraClient) -> Dict[str, Any]:
     """
-    Handle DOCUMENTATION status: Generate docs and complete.
+    Handle DOCUMENTATION status: Generate docs and auto-transition to DONE.
     """
     issue_key = issue.get("key")
     fields = issue.get("fields", {})
@@ -37,15 +37,14 @@ async def handle(issue: Dict[str, Any], jira: JiraClient) -> Dict[str, Any]:
 
 **Documentation Checklist:**
 - [x] Implementation summarized
-- [x] Changes described
-- [x] Usage notes added (if applicable)
+- [x] Changes documented
+- [x] Issue complete
 
-This issue is now complete and ready for closure."""
+Dieses Issue wird jetzt abgeschlossen."""
 
-    # Transition to DONE
+    # Auto-transition to DONE
     transition_id = await jira.find_transition_by_name(issue_key, "DONE")
     if not transition_id:
-        # Try German variant
         transition_id = await jira.find_transition_by_name(issue_key, "FERTIG")
 
     if transition_id:
@@ -53,7 +52,7 @@ This issue is now complete and ready for closure."""
         return {
             "status": "done",
             "issue": issue_key,
-            "action": "Documentation complete, issue closed"
+            "action": "Dokumentation erstellt, Issue abgeschlossen"
         }
 
     # No transition available - just add comment
@@ -61,7 +60,7 @@ This issue is now complete and ready for closure."""
     return {
         "status": "documentation",
         "issue": issue_key,
-        "action": "Documentation added, manual transition to DONE needed"
+        "action": "Dokumentation erstellt - manuelle Transition nach DONE erforderlich"
     }
 
 
@@ -93,4 +92,4 @@ New feature has been implemented as specified. See PR/commits for details."""
 - Type: {issue_type}
 - Status: Complete
 
-Task completed successfully. Changes have been documented in the codebase."""
+Task completed successfully."""

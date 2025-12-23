@@ -6,7 +6,7 @@ When an issue enters REVIEW status:
 1. Summarize what was implemented
 2. Create/update Pull Request (if GitHub sync enabled)
 3. Add review checklist comment
-4. Transition to TESTING
+4. WAIT for user to approve and move to TESTING
 """
 
 from typing import Dict, Any
@@ -19,7 +19,9 @@ from jira_client import JiraClient
 
 async def handle(issue: Dict[str, Any], jira: JiraClient) -> Dict[str, Any]:
     """
-    Handle REVIEW status: Summarize and prepare for testing.
+    Handle REVIEW status: Summarize and wait for user approval.
+
+    DOES NOT auto-transition - user must review and move to TESTING manually.
     """
     issue_key = issue.get("key")
     fields = issue.get("fields", {})
@@ -30,7 +32,7 @@ async def handle(issue: Dict[str, Any], jira: JiraClient) -> Dict[str, Any]:
     implementation_summary = extract_implementation_summary(comments)
 
     # Create review comment
-    review_comment = f"""[Code Review]
+    review_comment = f"""[Code Review - Warte auf Bestaetigung]
 
 **Implementation Summary:**
 {implementation_summary}
@@ -42,25 +44,18 @@ async def handle(issue: Dict[str, Any], jira: JiraClient) -> Dict[str, Any]:
 - [ ] Changes are documented
 - [ ] No unnecessary complexity
 
-**Next:** Automated tests will run after review approval."""
+**Naechste Schritte:**
+1. Review durchfuehren
+2. Bei Aenderungsbedarf: Kommentar hinzufuegen
+3. Bei Freigabe: Manuell nach "TESTING" verschieben"""
 
-    # Transition to TESTING
-    transition_id = await jira.find_transition_by_name(issue_key, "TESTING")
-
-    if transition_id:
-        await jira.transition_issue(issue_key, transition_id, review_comment)
-        return {
-            "status": "testing",
-            "issue": issue_key,
-            "action": "Review complete, transitioned to TESTING"
-        }
-
-    # No transition available - just add comment
+    # Add review comment - DO NOT auto-transition!
     await jira.add_comment(issue_key, review_comment)
+
     return {
         "status": "review",
         "issue": issue_key,
-        "action": "Review comment added, no transition available"
+        "action": "Review-Checkliste hinzugefuegt - warte auf User-Bestaetigung"
     }
 
 
