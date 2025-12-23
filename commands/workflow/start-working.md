@@ -1,133 +1,213 @@
-# Start Working
+# Start Working - Claude Code als intelligenter Workflow Worker
 
-Starte den Jira-Worker und arbeite kontinuierlich an Issues.
+Arbeite alle Jira Issues im aktuellen Repo so weit wie moeglich durch den Workflow.
 
-## Beschreibung
+## Kernprinzip
 
-Dieser Command startet eine Arbeits-Session, die Jira nach Issues pollt und diese automatisch verarbeitet. Der Worker durchläuft den kompletten Workflow:
+**DU (Claude Code) bist der Worker.** Du analysierst jedes Issue im Kontext des Repos und bewegst Issues durch den Workflow.
+
+## WICHTIG: Zwei-Phasen-Workflow
+
+**Phase 1: Planung (TO DO → PLANNED)**
+- Codebase analysieren (NUR LESEN!)
+- Plan in Jira dokumentieren
+- Status auf PLANNED setzen
+- **KEINE Code-Aenderungen!**
+- **WARTEN auf User-Review!**
+
+**Phase 2: Implementierung (PLANNED AND CONFIRMED → IN PROGRESS)**
+- Erst wenn User nach PLANNED AND CONFIRMED verschoben hat
+- Dann Code implementieren
+- Commits erstellen
+- Status weiter bewegen
+
+## Workflow mit User-Approval-Gates
 
 ```
-TO DO → PLANNED → PLANNED AND CONFIRMED → IN PROGRESS → REVIEW → TESTING → MANUAL TESTING → DOCUMENTATION → DONE
+TO DO → [Claude plant] → PLANNED → [USER] → PLANNED AND CONFIRMED → [Claude implementiert] → IN PROGRESS → [Claude] → REVIEW → [USER] → TESTING → [Claude] → MANUAL TESTING → [USER] → DOCUMENTATION → [Claude] → DONE
 ```
+
+**User verschiebt manuell (3 Gates):**
+1. **PLANNED → PLANNED AND CONFIRMED** (User prüft Plan)
+2. **REVIEW → TESTING** (User prüft Code Review)
+3. **MANUAL TESTING → DOCUMENTATION** (User bestätigt manuelle Tests)
+
+**Claude verschiebt automatisch:**
+- TO DO → PLANNED (Plan erstellen)
+- PLANNED AND CONFIRMED → IN PROGRESS (Implementierung starten)
+- IN PROGRESS → REVIEW (Implementierung fertig)
+- TESTING → MANUAL TESTING (Auto-Tests bestanden)
+- DOCUMENTATION → DONE (Doku erstellt)
 
 ## Anweisungen
 
-### Schritt 1: Jira-Verbindung prüfen
+### 1. Konfiguration laden
 
-Prüfe ob Jira konfiguriert ist:
+Lade `.claude-workflow.json` aus dem aktuellen Repo:
+- `jira.project_key` - Jira Projekt
+- `github.base_branch` - Basis-Branch fuer PRs
+
+Falls nicht vorhanden: Zeige Fehler und beende.
+
+### 2. Jira Issues abrufen
+
+Pruefe ob Jira MCP-Tools verfuegbar sind:
+- `jira_list_by_status`
+- `jira_get_workable`
+- `jira_process_issue`
+
+Falls nicht: Zeige Anleitung zur MCP-Server Konfiguration.
+
+Hole alle offenen Issues:
 ```
 Tool: jira_list_by_status
 Arguments:
-  statuses: ["TO DO"]
+  statuses: ["to do", "PLANNED", "PLANNED AND CONFIRMED", "In progress"]
 ```
 
-Falls Fehler: Zeige Hinweis zur Konfiguration.
+### 3. Issues nach Prioritaet sortieren
 
-### Schritt 2: Workable Issues abrufen
-
-Hole alle Issues die bearbeitet werden können:
+Zeige Uebersicht:
 ```
-Tool: jira_get_workable
-```
+=== WORKFLOW SESSION: {project_key} ===
 
-### Schritt 3: Übersicht anzeigen
+Gefunden: {count} Issues
 
-```
-=== JIRA WORKFLOW SESSION ===
+TO DO (Planung erforderlich):
+  - MUS-XX: Titel...
 
-Projekt: {JIRA_PROJECT_KEY}
-Gefundene Issues: {count}
+PLANNED AND CONFIRMED (Bereit zur Implementierung):
+  - MUS-YY: Titel...
 
-=== ISSUES ZUM BEARBEITEN ===
-{Für jedes Issue:}
-[{status}] {key}: {summary}
+IN PROGRESS (In Arbeit):
+  - MUS-ZZ: Titel...
 
-Starte automatische Verarbeitung...
+Starte Verarbeitung...
 ```
 
-### Schritt 4: Issues verarbeiten
+### 4. TO DO Issues → PLANNED (NUR PLANEN, NICHT IMPLEMENTIEREN!)
 
-Für jedes Issue:
+**WICHTIG: Bei TO DO Issues wird NUR ein Plan erstellt! KEINE Code-Aenderungen!**
+
+Fuer jedes Issue im Status "TO DO":
+
+**a) Issue-Details lesen:**
 ```
-Tool: jira_process_issue
+Tool: jira_get_issue
 Arguments:
   issue_key: {key}
 ```
 
-Zeige Fortschritt:
-```
-[{index}/{total}] {key}: {status} → {result}
-```
+**b) Codebase analysieren (NUR LESEN!):**
+- Suche relevante Dateien basierend auf Issue-Titel/Beschreibung
+- Verstehe die aktuelle Implementierung
+- Identifiziere betroffene Komponenten
+- **KEINE DATEIEN AENDERN!**
 
-### Schritt 5: Polling-Loop (optional)
+**c) Konkreten Plan erstellen:**
+Basierend auf der Codebase-Analyse, dokumentiere:
+- Welche Dateien muessen geaendert werden?
+- Was genau muss implementiert werden?
+- Welche Tests sind noetig?
 
-Falls der User kontinuierliches Polling wünscht:
+**d) Jira mit Plan aktualisieren:**
 ```
-Tool: jira_poll_once
-```
-
-Wiederhole alle 30 Sekunden.
-
-### Schritt 6: Telegram-Benachrichtigung
-
-Bei wichtigen Status-Änderungen:
-```
-Tool: telegram_workflow_start
+Tool: jira_update_issue
 Arguments:
-  workflow_id: {issue_key}
-  project: {project}
-  title: {summary}
+  issue_key: {key}
+  fields:
+    description: |
+      **Urspruengliche Anforderung**
+      {original_description}
+
+      **Analyse**
+      {deine_analyse_der_codebase}
+
+      **Implementierungsplan**
+      1. {konkreter_schritt_1}
+      2. {konkreter_schritt_2}
+      ...
+
+      **Betroffene Dateien**
+      - path/to/file1.py
+      - path/to/file2.ts
+
+      **Naechste Schritte**
+      - Plan pruefen
+      - Nach PLANNED AND CONFIRMED verschieben wenn OK
 ```
 
-## Status-Aktionen
+**e) Status auf PLANNED setzen (NICHT PLANNED AND CONFIRMED!):**
+```
+Tool: jira_transition
+Arguments:
+  issue_key: {key}
+  transition_name: "Geplant"
+```
 
-| Jira Status | Automatische Aktion |
-|-------------|---------------------|
-| TO DO | Plan erstellen → PLANNED |
-| PLANNED | Warten auf User-Feedback |
-| PLANNED AND CONFIRMED | Arbeit starten → IN PROGRESS |
-| IN PROGRESS | Arbeit fortsetzen, bei Blockern: Telegram |
-| REVIEW | Code-Review → TESTING |
-| TESTING | Tests ausführen → MANUAL TESTING |
-| MANUAL TESTING | Warten auf User-Bestätigung |
-| DOCUMENTATION | Doku erstellen → DONE |
+**STOP! Warte auf User-Bestaetigung bevor du weitermachst!**
 
-## Ausgabe-Format
+### 5. PLANNED AND CONFIRMED → IN PROGRESS → REVIEW
+
+Fuer jedes Issue im Status "PLANNED AND CONFIRMED":
+
+**a) Plan aus Issue lesen**
+
+**b) Implementierung durchfuehren:**
+- Erstelle/aendere die identifizierten Dateien
+- Schreibe Tests
+- Fuehre Tests aus
+
+**c) Fortschritt in Jira dokumentieren:**
+```
+Tool: jira_add_comment
+Arguments:
+  issue_key: {key}
+  comment: |
+    [Fortschritt]
+    - ✅ Datei X geaendert
+    - ✅ Tests geschrieben
+    - 🔄 Code Review ausstehend
+```
+
+**d) Bei Fertigstellung:**
+- Commit erstellen
+- PR erstellen (falls konfiguriert)
+- Status → REVIEW
+
+### 6. REVIEW → TESTING
+
+Fuer Issues in REVIEW:
+- Pruefe ob PR gemerged
+- Fuehre finale Tests aus
+- Status → TESTING → DONE
+
+### 7. Zusammenfassung
 
 ```
-=== SESSION GESTARTET ===
-Verarbeite {count} Issues...
-
-[1/3] MT-1: TO DO → PLANNED (Plan erstellt)
-[2/3] MT-2: PLANNED AND CONFIRMED → IN PROGRESS (Arbeit gestartet)
-[3/3] MT-3: REVIEW → TESTING (Tests laufen)
-
 === SESSION ABGESCHLOSSEN ===
-Verarbeitet: 3 Issues
-Nächster Poll in 30s oder beenden mit Ctrl+C
+
+Verarbeitet:
+- MUS-XX: TO DO → PLANNED (Plan erstellt)
+- MUS-YY: PLANNED AND CONFIRMED → IN PROGRESS (Implementierung gestartet)
+- MUS-ZZ: IN PROGRESS → REVIEW (PR erstellt)
+
+Naechste Schritte:
+- MUS-XX: Plan in Jira pruefen, dann nach "PLANNED AND CONFIRMED" verschieben
+- MUS-YY: Implementierung fortsetzen mit /workflow:start-working
 ```
 
-## Verwendung
+## Wichtige Regeln
 
-```bash
-/workflow:start-working           # Einmaliger Durchlauf
-/workflow:start-working --loop    # Kontinuierliches Polling
-/workflow:start-working MT-123    # Spezifisches Issue bearbeiten
-```
+1. **Immer Codebase analysieren** - Keine generischen Plaene!
+2. **Konkrete Dateipfade nennen** - Welche Files werden geaendert?
+3. **Kleine Commits** - Ein Commit pro logische Aenderung
+4. **Tests schreiben** - Keine Implementierung ohne Tests
+5. **Jira aktuell halten** - Fortschritt dokumentieren
 
-## Voraussetzungen
+## Fallback ohne Jira MCP
 
-1. Jira-Konfiguration in `.env`:
-   - JIRA_BASE_URL
-   - JIRA_USERNAME
-   - JIRA_API_TOKEN
-   - JIRA_PROJECT_KEY
-
-2. Jira-Board mit korrekten Status-Spalten
-
-## Hinweise
-
-- Der Worker verarbeitet nur Issues im konfigurierten Projekt
-- MANUAL TESTING erfordert User-Interaktion
-- Bei Fehlern wird ein Kommentar im Issue erstellt
-- Telegram-Benachrichtigungen bei Blockern und Abschluss
+Falls Jira MCP nicht verfuegbar:
+1. Zeige Anleitung zur Installation
+2. Biete Alternative: GitHub Issues verwenden
+3. Oder: Manuell Jira-Key angeben fuer direkten API-Aufruf

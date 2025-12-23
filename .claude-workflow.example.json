@@ -1,0 +1,13 @@
+{
+  "jira": {
+    "project_key": "YOUR_PROJECT_KEY",
+    "default_issue_type": "Task"
+  },
+  "github": {
+    "base_branch": "main"
+  },
+  "workflow": {
+    "auto_plan": true,
+    "create_subtasks": true
+  }
+}

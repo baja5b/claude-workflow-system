@@ -135,6 +135,31 @@ python github_sync.py status <pr_number>
 
 ## Configuration
 
+### Per-Repository Configuration (`.claude-workflow.json`)
+
+Lege eine `.claude-workflow.json` im Repo-Root an, um projekt-spezifische Einstellungen zu definieren:
+
+```json
+{
+  "jira": {
+    "project_key": "YOUR_PROJECT_KEY",
+    "default_issue_type": "Task"
+  },
+  "github": {
+    "base_branch": "main"
+  },
+  "workflow": {
+    "auto_plan": true,
+    "create_subtasks": true
+  }
+}
+```
+
+**Priorität für Project Key:**
+1. Explizit übergebener Parameter
+2. `.claude-workflow.json` im Repo
+3. `JIRA_PROJECT_KEY` aus `.env`
+
 ### Environment Variables (jira-mcp/.env)
 ```env
 JIRA_BASE_URL=https://your-domain.atlassian.net
