@@ -148,33 +148,24 @@ Arguments:
 ```
 
 ```
-Tool: telegram_send
+Tool: telegram_workflow_complete
 Arguments:
-  message: |
-    ✅ *4-Augen Test bestanden*
-
-    *ID:* `{workflow_id}`
-    *Titel:* {title}
-
-    ✅ Health Check
-    ✅ Container Status
-    ✅ API Endpoints
-    ✅ Code Review
-
-    Workflow abgeschlossen!
+  workflow_id: {workflow_id}
+  project: {project}
+  title: {title}
+  tests_passed: {passed_count}
+  tests_total: {total_count}
 ```
 
 Bei **FAIL**:
 ```
-Tool: telegram_send
+Tool: telegram_workflow_error
 Arguments:
-  message: |
-    ❌ *Test fehlgeschlagen*
-
-    *ID:* `{workflow_id}`
-    *Fehler:* {failed_tests}
-
-    Bitte prüfen und beheben.
+  workflow_id: {workflow_id}
+  project: {project}
+  title: {title}
+  phase: "TESTING"
+  error: {failed_tests_summary}
 ```
 
 ### Schritt 9: Optional - Smoke Tests

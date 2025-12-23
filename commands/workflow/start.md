@@ -120,19 +120,13 @@ Arguments:
 
 ### Schritt 6: Telegram-Benachrichtigung
 
-Sende Notification mit `telegram_send_message`:
+Sende Notification mit `telegram_workflow_start`:
 ```
-Tool: telegram_send_message
+Tool: telegram_workflow_start
 Arguments:
-  message: |
-    🚀 *Workflow gestartet*
-
-    *ID:* {workflow_id}
-    *Projekt:* {project}
-    *Task:* {title}
-    *Status:* PLANNING
-
-    Tasks: {anzahl}
+  workflow_id: {workflow_id}
+  project: {project}
+  title: {title}
 ```
 
 ### Ausgabe-Format

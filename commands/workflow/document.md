@@ -73,21 +73,12 @@ Arguments:
 ### 6. Telegram-Benachrichtigung
 
 ```
-Tool: telegram_send
+Tool: telegram_workflow_complete
 Arguments:
-  message: |
-    📝 *Dokumentation erstellt*
-
-    *Workflow:* `{workflow_id}`
-    *Projekt:* {project}
-    *Titel:* {title}
-
-    📊 *Statistiken:*
-    - Dateien: {files_changed}
-    - Zeilen: +{lines_added} / -{lines_removed}
-    - Dauer: {duration}
-
-    ✅ Workflow abgeschlossen!
+  workflow_id: {workflow_id}
+  project: {project}
+  title: {title}
+  duration_minutes: {duration_minutes}
 ```
 
 ### 7. PR erstellen (falls auf Feature-Branch)
