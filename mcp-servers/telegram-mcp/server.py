@@ -34,9 +34,20 @@ load_dotenv(env_path)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")
 
 # Initialize MCP server
 server = Server("telegram-mcp")
+
+
+def get_jira_link(issue_key: str) -> str:
+    """Generate a Jira issue link if JIRA_BASE_URL is configured."""
+    if not JIRA_BASE_URL or not issue_key:
+        return ""
+    # Check if it looks like a Jira key (e.g., PROJ-123)
+    if "-" in issue_key and not issue_key.startswith("WF-"):
+        return f"[{issue_key}]({JIRA_BASE_URL}/browse/{issue_key})"
+    return ""
 
 
 def get_telegram_api_url(method: str) -> str:
@@ -265,48 +276,64 @@ async def call_tool(name: str, arguments: dict):
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "telegram_workflow_start":
+        workflow_id = arguments['workflow_id']
+        jira_link = get_jira_link(workflow_id)
+        id_display = jira_link if jira_link else f"`{workflow_id}`"
+
         message = f"""🚀 *Workflow gestartet*
 
 *Projekt:* {arguments['project']}
 *Task:* {arguments['title']}
-*ID:* `{arguments['workflow_id']}`
+*ID:* {id_display}
 *Status:* Planning"""
         result = await send_telegram_message(message)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "telegram_workflow_complete":
+        workflow_id = arguments['workflow_id']
+        jira_link = get_jira_link(workflow_id)
+        id_display = jira_link if jira_link else f"`{workflow_id}`"
+
         duration = arguments.get('duration_minutes', '?')
         tests = f"{arguments.get('tests_passed', '?')}/{arguments.get('tests_total', '?')}"
         message = f"""✅ *Workflow abgeschlossen*
 
 *Projekt:* {arguments['project']}
 *Task:* {arguments['title']}
-*ID:* `{arguments['workflow_id']}`
+*ID:* {id_display}
 *Dauer:* {duration} min
 *Tests:* {tests} passed"""
         result = await send_telegram_message(message)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "telegram_workflow_error":
+        workflow_id = arguments['workflow_id']
+        jira_link = get_jira_link(workflow_id)
+        id_display = jira_link if jira_link else f"`{workflow_id}`"
+
         phase = arguments.get('phase', 'Unknown')
         message = f"""❌ *Fehler aufgetreten*
 
 *Projekt:* {arguments['project']}
 *Task:* {arguments['title']}
-*ID:* `{arguments['workflow_id']}`
+*ID:* {id_display}
 *Phase:* {phase}
 *Error:* `{arguments['error']}`"""
         result = await send_telegram_message(message)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "telegram_workflow_decision":
+        workflow_id = arguments['workflow_id']
+        jira_link = get_jira_link(workflow_id)
+        id_display = jira_link if jira_link else f"`{workflow_id}`"
+
         message = f"""❓ *Entscheidung erforderlich*
 
 *Workflow:* {arguments['title']}
-*ID:* `{arguments['workflow_id']}`
+*ID:* {id_display}
 *Frage:* {arguments['question']}
 
-→ Öffne Claude Code zum Antworten"""
+→ Antworte als Kommentar im Jira-Issue"""
         result = await send_telegram_message(message)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 

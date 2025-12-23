@@ -1,0 +1,4 @@
+# Jira MCP Server Dependencies
+mcp>=1.0.0
+httpx>=0.25.0
+python-dotenv>=1.0.0

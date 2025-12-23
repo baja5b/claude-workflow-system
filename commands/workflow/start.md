@@ -1,45 +1,39 @@
 # Workflow Start
 
-Starte einen neuen AI-gesteuerten Entwicklungs-Workflow.
+Starte einen neuen AI-gesteuerten Entwicklungs-Workflow mit Jira-Integration.
 
 ## Anweisungen
 
 Du startest jetzt einen strukturierten Workflow für: **$ARGUMENTS**
 
-### Schritt 0: GitHub Issue prüfen/erstellen
+### Schritt 0: Jira Issue prüfen/erstellen
 
-**Pflicht:** Jede Änderung braucht ein GitHub Issue.
+**Pflicht:** Jede Änderung braucht ein Jira Issue.
 
 1. **Prüfe ob Issue existiert:**
-   ```bash
-   gh issue list --search "$ARGUMENTS" --state open
+   ```
+   Tool: jira_list_issues
+   Arguments:
+     jql: "project = {PROJECT_KEY} AND summary ~ \"$ARGUMENTS\" AND status != Done"
    ```
 
 2. **Falls kein Issue existiert, erstelle eines:**
-   ```bash
-   gh issue create --title "feat: $ARGUMENTS" --body "..." --label "feature-request"
+   ```
+   Tool: jira_create_issue
+   Arguments:
+     summary: $ARGUMENTS
+     description: "Workflow gestartet von Claude Code"
+     issue_type: "Task"
    ```
 
 3. **Erstelle Feature-Branch:**
    ```bash
    git checkout develop
    git pull origin develop
-   git checkout -b feature/issue-{nummer}-{kurzbeschreibung}
+   git checkout -b feature/{ISSUE_KEY}-{kurzbeschreibung}
    ```
 
-### Schritt 1: Workflow erstellen
-
-Nutze den `workflow_create` MCP-Tool um den Workflow anzulegen:
-
-```
-Tool: workflow_create
-Arguments:
-  project: {name des aktuellen Projekts}
-  project_path: {vollständiger Pfad zum Projekt}
-  title: $ARGUMENTS
-```
-
-### Schritt 2: Bestehende Strukturen analysieren (Duplikate vermeiden!)
+### Schritt 1: Bestehende Strukturen analysieren (Duplikate vermeiden!)
 
 **Pflicht:** Vor jeder Implementierung prüfen ob wiederverwendbare Strukturen existieren.
 
@@ -78,7 +72,7 @@ Arguments:
    - Gefundene wiederverwendbare Strukturen auflisten
    - Vorschlagen ob Erweiterung oder Neuerstellung sinnvoller ist
 
-### Schritt 3: Requirements analysieren
+### Schritt 2: Requirements analysieren
 
 1. **Analysiere die Anforderung**:
    - Was genau soll implementiert werden?
@@ -91,42 +85,56 @@ Arguments:
    - Frage nach Präferenzen bei mehreren Lösungsansätzen
    - Kläre Edge Cases und Fehlerbehandlung
 
-### Schritt 4: Plan erstellen und speichern
+### Schritt 3: Plan erstellen und als Jira-Kommentar speichern
 
 Erstelle einen konkreten Implementierungsplan:
 - Liste konkrete Tasks auf (nummeriert)
 - Identifiziere betroffene Dateien
 - Definiere Akzeptanzkriterien
 
-Speichere den Plan mit `workflow_update`:
+Speichere den Plan als Jira-Kommentar:
 ```
-Tool: workflow_update
+Tool: jira_add_comment
 Arguments:
-  workflow_id: {die generierte ID}
-  requirements: {JSON-String mit den Anforderungen}
-  plan: {JSON-String mit dem Plan}
+  issue_key: {ISSUE_KEY}
+  body: |
+    [Implementation Plan]
+
+    **Requirements:**
+    {requirements_summary}
+
+    **Affected Files:**
+    {file_list}
+
+    **Tasks:**
+    1. {task_1}
+    2. {task_2}
+    3. {task_3}
+
+    **Acceptance Criteria:**
+    - {criterion_1}
+    - {criterion_2}
+
+    Warte auf Bestätigung...
 ```
 
-### Schritt 5: Tasks hinzufügen
+### Schritt 4: Issue auf PLANNED setzen
 
-Für jeden Task im Plan:
 ```
-Tool: workflow_add_task
+Tool: jira_transition
 Arguments:
-  workflow_id: {ID}
-  sequence: {1, 2, 3, ...}
-  description: {Task-Beschreibung}
+  issue_key: {ISSUE_KEY}
+  status: "PLANNED"
 ```
 
-### Schritt 6: Telegram-Benachrichtigung
+### Schritt 5: Telegram-Benachrichtigung
 
-Sende Notification mit `telegram_workflow_start`:
 ```
 Tool: telegram_workflow_start
 Arguments:
-  workflow_id: {workflow_id}
+  workflow_id: {ISSUE_KEY}
   project: {project}
-  title: {title}
+  title: {summary}
 ```
 
 ### Ausgabe-Format
@@ -135,10 +143,10 @@ Zeige dem User:
 
 ```
 === WORKFLOW GESTARTET ===
-ID: WF-2025-XXX
+Issue: {ISSUE_KEY}
 Projekt: {aktuelles Verzeichnis}
 Titel: $ARGUMENTS
-Branch: feature/issue-{nummer}-{kurzbeschreibung}
+Branch: feature/{ISSUE_KEY}-{kurzbeschreibung}
 
 === STRUKTUR-ANALYSE ===
 
@@ -148,7 +156,7 @@ Wiederverwendbare Komponenten gefunden:
 
 Empfehlung: {Erweiterung/Neuerstellung} weil {begründung}
 
-=== REQUIREMENTS PLANNING ===
+=== REQUIREMENTS ===
 
 [Deine Analyse hier]
 
@@ -159,19 +167,22 @@ Tasks:
 2. [Task 2]
 ...
 
-Bestätige mit /workflow:confirm oder passe den Plan an.
+=== NÄCHSTER SCHRITT ===
+Prüfe den Plan in Jira und verschiebe das Issue zu "PLANNED AND CONFIRMED"
+oder nutze: /workflow:confirm {ISSUE_KEY}
 ```
 
 ## Workflow-Status
 
-Nach dem Start ist der Workflow im Status `PLANNING`.
-Nächster Schritt: `/workflow:confirm` um die Implementierung zu starten.
+Nach dem Start ist das Issue im Status `PLANNED`.
+Nächster Schritt: Issue in Jira auf `PLANNED AND CONFIRMED` verschieben
+oder `/workflow:confirm` um die Implementierung zu starten.
 
 ## Wichtig
 
 - Warte auf User-Bestätigung bevor du implementierst
-- Dokumentiere alle Entscheidungen
+- Dokumentiere alle Entscheidungen als Jira-Kommentare
 - Halte den Plan konkret und umsetzbar
-- Nutze die MCP-Tools für alle Workflow-Operationen
+- Nutze die Jira-MCP-Tools für alle Workflow-Operationen
 - **KEINE DUPLIKATE:** Immer bestehende Strukturen erweitern statt neue erstellen
 - **Code lesen vor schreiben:** Verstehe was existiert bevor du änderst

@@ -5,113 +5,69 @@ Starte einen unabhängigen Review der Implementierung.
 ## Anweisungen
 
 Das 4-Augen-Prinzip bedeutet: Eine unabhängige Prüfung der Änderungen
-anhand der Original-Anforderungen UND automatisierte Tests auf dem Dev-Server.
+anhand der Original-Anforderungen UND automatisierte Tests.
 
-### Schritt 1: Aktuellen Workflow laden
-
-```
-Tool: workflow_list_active
-```
-
-Wähle den Workflow im Status `EXECUTING` oder `TESTING`.
+### Schritt 1: Issue laden
 
 ```
-Tool: workflow_get
+Tool: jira_list_by_status
 Arguments:
-  workflow_id: {ID}
+  statuses: ["REVIEW", "TESTING"]
 ```
 
-### Schritt 2: Status auf TESTING setzen
-
+Falls Issue-Key als Argument:
 ```
-Tool: workflow_update
+Tool: jira_get_issue
 Arguments:
-  workflow_id: {ID}
-  status: TESTING
+  issue_key: $ARGUMENTS
 ```
 
-### Schritt 3: Deployment prüfen
+### Schritt 2: Transition zu TESTING
 
-Prüfe ob das Deployment erfolgreich war:
 ```
-Tool: test_check_deployment
+Tool: jira_transition
 Arguments:
-  environment: dev
+  issue_key: {KEY}
+  status: "TESTING"
+  comment: "Starte automatisierte Tests..."
 ```
 
-### Schritt 4: Lokale Tests ausführen (vor Merge)
+### Schritt 3: Lokale Tests ausführen
 
 **Pflicht vor jedem Merge:**
 
 ```bash
 # Lint Check
-docker-compose exec backend ruff check . --ignore E501
-docker-compose exec frontend npm run lint
+npm run lint
+# oder
+ruff check . --ignore E501
 
 # Unit Tests
-docker-compose exec backend pytest -v
-docker-compose exec frontend npm test
+npm test
+# oder
+pytest -v
 
 # E2E Tests (bei größeren Änderungen)
-docker-compose exec frontend npm run test:smoke
+npm run test:e2e
 ```
 
-### Schritt 5: Comprehensive Tests auf Dev-Server
+### Schritt 4: Test-Ergebnisse dokumentieren
 
-Führe automatisierte Tests auf dem Dev-Server aus:
 ```
-Tool: test_comprehensive
+Tool: jira_add_comment
 Arguments:
-  environment: dev
-  include_smoke_tests: false
+  issue_key: {KEY}
+  body: |
+    [Test Results]
+
+    **Lint:** {PASSED/FAILED}
+    **Unit Tests:** {count} tests, {passed} passed
+    **E2E Tests:** {status}
+
+    {Details bei Fehlern}
 ```
 
-Dies prüft:
-- Health Check (API erreichbar)
-- Container Status (alle Container laufen)
-- API Endpoints (kritische Endpoints funktionieren)
-
-### Schritt 5b: API Tests
-
-Prüfe kritische API-Endpoints:
-```
-Tool: test_api_endpoint
-Arguments:
-  environment: dev
-  endpoint: /api/health
-  method: GET
-```
-
-```
-Tool: test_api_endpoint
-Arguments:
-  environment: dev
-  endpoint: /api/songs
-  method: GET
-```
-
-```
-Tool: test_api_endpoint
-Arguments:
-  environment: dev
-  endpoint: /api/events
-  method: GET
-```
-
-### Schritt 6: Test-Ergebnisse speichern
-
-Für jeden Test-Typ:
-```
-Tool: workflow_add_test_result
-Arguments:
-  workflow_id: {ID}
-  test_type: "health" | "api" | "container"
-  test_name: {Name des Tests}
-  passed: true/false
-  output: {Test-Output}
-```
-
-### Schritt 7: 4-Augen Code Review
+### Schritt 5: 4-Augen Code Review
 
 Spawne einen Task Agent für den Code Review:
 
@@ -119,12 +75,12 @@ Spawne einen Task Agent für den Code Review:
 Tool: Task
 Arguments:
   subagent_type: general-purpose
-  description: "Code Review for workflow"
+  description: "Code Review for issue"
   prompt: |
     Du bist ein unabhängiger Code Reviewer.
 
     ORIGINAL-ANFORDERUNGEN:
-    {requirements aus workflow}
+    {requirements aus Jira Issue}
 
     GIT ÄNDERUNGEN:
     {führe git diff aus}
@@ -137,77 +93,75 @@ Arguments:
     Antworte mit: PASS oder FAIL mit Begründung.
 ```
 
-### Schritt 8: Ergebnis auswerten
+### Schritt 6: Ergebnis auswerten
 
 Bei **PASS** (alle Tests bestanden):
 ```
-Tool: workflow_update
+Tool: jira_transition
 Arguments:
-  workflow_id: {ID}
-  status: COMPLETED
+  issue_key: {KEY}
+  status: "MANUAL TESTING"
+  comment: "Automatische Tests bestanden. Bereit für manuelles Testing."
 ```
 
 ```
 Tool: telegram_workflow_complete
 Arguments:
-  workflow_id: {workflow_id}
+  workflow_id: {issue_key}
   project: {project}
-  title: {title}
+  title: {summary}
   tests_passed: {passed_count}
   tests_total: {total_count}
 ```
 
 Bei **FAIL**:
 ```
+Tool: jira_add_comment
+Arguments:
+  issue_key: {KEY}
+  body: |
+    [Tests FAILED]
+
+    {Fehlerbeschreibung}
+
+    Bitte beheben und erneut testen.
+```
+
+```
 Tool: telegram_workflow_error
 Arguments:
-  workflow_id: {workflow_id}
+  workflow_id: {issue_key}
   project: {project}
-  title: {title}
+  title: {summary}
   phase: "TESTING"
   error: {failed_tests_summary}
-```
-
-### Schritt 9: Optional - Smoke Tests
-
-Falls kritische Änderungen:
-```
-Tool: test_run_smoke_tests
-Arguments:
-  environment: dev
-  project_path: {Pfad zum MusicTracker Projekt}
 ```
 
 ## Ausgabe-Format
 
 ```
 === 4-AUGEN TEST ===
-Workflow: WF-2025-XXX
+Issue: MT-123
 
-🔍 Lokale Tests (vor Merge):
-✅ Lint: ruff + eslint OK
-✅ Unit Tests: pytest + jest OK
-✅ E2E Tests: Playwright OK
+Lokale Tests:
+  Lint:        PASSED
+  Unit Tests:  42 passed, 0 failed
+  E2E Tests:   PASSED
 
-🔍 Dev-Server Tests:
-✅ Health Check: API erreichbar
-✅ Container: 6/6 running
-✅ API Endpoints: /health, /songs, /events OK
-
-🔍 Code Review:
-✅ Anforderungen erfüllt
-✅ Keine offensichtlichen Bugs
-✅ Code-Qualität akzeptabel
-✅ Logging vorhanden
-✅ Keine Inline-Styles
+Code Review:
+  Anforderungen erfüllt: JA
+  Offensichtliche Bugs:  NEIN
+  Code-Qualität:         OK
 
 === TEST ERGEBNIS: BESTANDEN ===
 
-Workflow wird als COMPLETED markiert.
+Issue wird auf MANUAL TESTING gesetzt.
+User muss nun manuell testen und bestätigen.
 ```
 
 ## Wichtig
 
-- Der Test läuft auf dem DEV-Server (NICHT Produktion!)
+- Tests laufen lokal oder auf Dev-Server (NICHT Produktion!)
 - Code Review ist isoliert (nur Requirements + Diff)
-- Bei Fehlern: Workflow bleibt in TESTING
+- Bei Fehlern: Issue bleibt in TESTING
+- MANUAL TESTING erfordert User-Interaktion in Jira

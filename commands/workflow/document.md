@@ -1,27 +1,28 @@
 # Workflow Document
 
-Generiere automatisch Dokumentation für den abgeschlossenen Workflow.
+Generiere automatisch Dokumentation für das abgeschlossene Issue.
 
 ## Anweisungen
 
-### 1. Workflow-Daten laden
+### 1. Issue laden
 
 ```
-Tool: workflow_list_active
-```
-
-Wähle den Workflow im Status `TESTING` oder `COMPLETED`.
-
-```
-Tool: workflow_get
+Tool: jira_list_by_status
 Arguments:
-  workflow_id: {ID}
+  statuses: ["DOCUMENTATION"]
+```
+
+Falls Issue-Key als Argument:
+```
+Tool: jira_get_issue
+Arguments:
+  issue_key: $ARGUMENTS
 ```
 
 ```
-Tool: workflow_get_tasks
+Tool: jira_get_comments
 Arguments:
-  workflow_id: {ID}
+  issue_key: {KEY}
 ```
 
 ### 2. Git History analysieren
@@ -49,55 +50,83 @@ git diff --stat HEAD~{commit_count}..HEAD
 ### Technical
 - Files modified: {file_list}
 - Tests: {test_count} added/modified
+- Jira: {issue_key}
 ```
 
-**Commit-Zusammenfassung:**
-- Erstelle aussagekräftige Commit-Message
-- Referenziere Workflow-ID und GitHub Issue
+### 4. Jira-Kommentar mit Dokumentation
 
-### 4. README/Docs updaten (falls nötig)
+```
+Tool: jira_add_comment
+Arguments:
+  issue_key: {KEY}
+  body: |
+    [Documentation Complete]
+
+    **Summary:**
+    {Was wurde implementiert}
+
+    **Changes:**
+    {Liste der Änderungen}
+
+    **Files Modified:**
+    {Dateiliste}
+
+    **Testing:**
+    - Unit Tests: {count}
+    - E2E Tests: {count}
+
+    **Commits:**
+    {commit_list}
+```
+
+### 5. README/Docs updaten (falls nötig)
 
 - Prüfe ob neue Features dokumentiert werden müssen
 - Update API-Dokumentation
 - Update Setup-Anweisungen
 
-### 5. Workflow finalisieren
+### 6. Issue abschließen
 
 ```
-Tool: workflow_update
+Tool: jira_transition
 Arguments:
-  workflow_id: {ID}
-  status: COMPLETED
+  issue_key: {KEY}
+  status: "DONE"
+  comment: "Issue vollständig dokumentiert und abgeschlossen."
 ```
 
-### 6. Telegram-Benachrichtigung
+### 7. Telegram-Benachrichtigung
 
 ```
 Tool: telegram_workflow_complete
 Arguments:
-  workflow_id: {workflow_id}
+  workflow_id: {issue_key}
   project: {project}
-  title: {title}
-  duration_minutes: {duration_minutes}
+  title: {summary}
+  duration_minutes: {duration}
 ```
 
-### 7. PR erstellen (falls auf Feature-Branch)
+### 8. PR erstellen (falls auf Feature-Branch)
 
 ```bash
 # Prüfe ob auf Feature-Branch
 git branch --show-current
 
 # Falls nicht main/develop, erstelle PR
-gh pr create --base develop --title "{title}" --body "$(cat <<'EOF'
+gh pr create --base develop --title "{issue_key}: {summary}" --body "$(cat <<'EOF'
 ## Summary
 {changelog_entry}
 
 ## Test plan
 - [x] Lokale Tests bestanden
-- [x] Dev-Server Tests bestanden
+- [x] Automatische Tests bestanden
+- [x] Manuelles Testing bestanden
 - [x] 4-Augen Review bestanden
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Closes #{github_issue_number}
+Jira: {issue_key}
+
+Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
@@ -106,13 +135,10 @@ EOF
 
 ```
 === DOKUMENTATION ERSTELLT ===
-Workflow: WF-2025-XXX
+Issue: MT-123
 
 === CHANGELOG ===
 {changelog_entry}
-
-=== COMMIT ===
-{suggested_commit_message}
 
 === STATISTIKEN ===
 - Dateien geändert: {files_changed}
@@ -120,7 +146,8 @@ Workflow: WF-2025-XXX
 - Zeilen entfernt: {lines_removed}
 - Dauer: {duration}
 
-=== WORKFLOW ABGESCHLOSSEN ===
+=== ISSUE ABGESCHLOSSEN ===
+Status: DOCUMENTATION → DONE
 ```
 
 ## Optionen
@@ -128,3 +155,4 @@ Workflow: WF-2025-XXX
 - `--no-changelog`: Changelog-Update überspringen
 - `--dry-run`: Zeige nur was dokumentiert würde
 - `--commit`: Erstelle direkt einen Commit
+- `--pr`: Erstelle Pull Request

@@ -76,7 +76,7 @@ if (-not (Test-Path $CommandsTarget)) {
 # Install MCP servers
 Write-Host "Installing MCP servers..." -ForegroundColor Green
 
-$mcpServers = @("docker-mcp", "scripts-mcp", "telegram-mcp", "workflow-mcp", "test-runner-mcp")
+$mcpServers = @("docker-mcp", "scripts-mcp", "telegram-mcp", "workflow-mcp", "test-runner-mcp", "jira-mcp")
 foreach ($server in $mcpServers) {
     $sourceDir = Join-Path $McpServersSource $server
     $targetDir = Join-Path $McpServersTarget $server
@@ -152,6 +152,10 @@ $mcpConfig = @{
             command = "python"
             args = @("$McpServersTarget\test-runner-mcp\server.py")
         }
+        jira = @{
+            command = "python"
+            args = @("$McpServersTarget\jira-mcp\server.py")
+        }
     }
 }
 
@@ -187,16 +191,20 @@ Write-Host "=== Installation Complete ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Install Python dependencies:"
-Write-Host "   pip install mcp python-telegram-bot paramiko" -ForegroundColor Gray
+Write-Host "   pip install mcp httpx python-dotenv paramiko" -ForegroundColor Gray
 Write-Host ""
 Write-Host "2. Configure Telegram bot:"
 Write-Host "   - Create bot via @BotFather"
 Write-Host "   - Copy .env.example to .env in telegram-mcp/"
 Write-Host "   - Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID" -ForegroundColor Gray
 Write-Host ""
-Write-Host "3. Test the installation:"
+Write-Host "3. Configure Jira (optional):"
+Write-Host "   - Copy .env.example to .env in jira-mcp/"
+Write-Host "   - Add JIRA_BASE_URL, JIRA_USERNAME, JIRA_API_TOKEN, JIRA_PROJECT_KEY" -ForegroundColor Gray
+Write-Host ""
+Write-Host "4. Test the installation:"
 Write-Host "   - Open Claude Code in any project"
-Write-Host "   - Run: /workflow-status" -ForegroundColor Gray
+Write-Host "   - Run: /workflow:status" -ForegroundColor Gray
 Write-Host ""
 
 if (-not $isAdmin) {

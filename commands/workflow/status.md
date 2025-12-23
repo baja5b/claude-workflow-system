@@ -1,97 +1,129 @@
 # Workflow Status
 
-Zeige den Status des aktuellen oder eines spezifischen Workflows.
+Zeige den Status der Jira-Issues und Workflows.
 
 ## Anweisungen
 
 ### Status-Abfrage
 
-**Alle aktiven Workflows:**
+**Alle aktiven Issues abrufen:**
 ```
-Tool: workflow_list_active
+Tool: jira_get_workable
 ```
 
-**Spezifischer Workflow (falls ID angegeben):**
+**Alternativ: Issues nach Status:**
 ```
-Tool: workflow_get
+Tool: jira_list_by_status
 Arguments:
-  workflow_id: $ARGUMENTS
+  statuses: ["TO DO", "PLANNED", "PLANNED AND CONFIRMED", "IN PROGRESS", "REVIEW", "TESTING", "MANUAL TESTING", "DOCUMENTATION"]
 ```
 
-**Tasks des Workflows:**
+**Spezifisches Issue (falls Key angegeben):**
 ```
-Tool: workflow_get_tasks
+Tool: jira_get_issue
 Arguments:
-  workflow_id: {ID}
+  issue_key: $ARGUMENTS
 ```
 
-**Telegram-Aufträge prüfen (noch nicht bearbeitet):**
-Prüfe ob es via Telegram erstellte Workflows gibt die noch nicht gestartet wurden.
+**Kommentare des Issues:**
+```
+Tool: jira_get_comments
+Arguments:
+  issue_key: {KEY}
+```
 
 ### Ausgabe-Format
 
 ```
-=== WORKFLOW STATUS ===
-ID: WF-2025-XXX
-Projekt: {project}
-Titel: {title}
-Status: {status}
-Erstellt: {created_at}
+=== JIRA WORKFLOW STATUS ===
 
-=== TASKS ({completed}/{total}) ===
-[✓] 1. Task 1 - COMPLETED
-[→] 2. Task 2 - IN_PROGRESS
-[ ] 3. Task 3 - PENDING
+=== BOARD ÜBERSICHT ===
+TO DO:              {count}
+PLANNED:            {count}
+CONFIRMED:          {count}
+IN PROGRESS:        {count}
+REVIEW:             {count}
+TESTING:            {count}
+MANUAL TESTING:     {count}
+DOCUMENTATION:      {count}
 
-=== TESTS ===
-Gesamt: {total_tests} | Bestanden: {passed_tests}
+=== AKTIVE ISSUES ===
+[IN PROGRESS] MT-123: Feature implementieren
+[TESTING]     MT-122: Bug Fix validieren
+[REVIEW]      MT-121: Refactoring abschließen
 
-=== LETZTE AKTIVITÄT ===
-{updated_at}: {letzte Aktion}
+=== NÄCHSTE AKTIONEN ===
+MT-123: Warte auf Implementierung
+MT-122: Tests ausführen
+MT-121: Code-Review durchführen
+```
+
+### Einzelnes Issue
+
+Falls Issue-Key angegeben:
+```
+=== ISSUE DETAILS ===
+Key:        {key}
+Titel:      {summary}
+Typ:        {issue_type}
+Status:     {status}
+Erstellt:   {created}
+
+=== BESCHREIBUNG ===
+{description}
+
+=== KOMMENTARE ({count}) ===
+{Für jeden Kommentar:}
+[{author}] {created}:
+{body}
+
+=== VERFÜGBARE TRANSITIONS ===
+{Für jede Transition:}
+→ {name}
 ```
 
 ### Status-Bedeutung
 
 | Status | Bedeutung | Nächster Schritt |
 |--------|-----------|------------------|
-| PLANNING | Plan wird erstellt | /workflow-confirm |
-| CONFIRMED | Plan bestätigt | Automatische Ausführung |
-| EXECUTING | Tasks werden ausgeführt | Warten |
-| TESTING | 4-Augen Test läuft | Warten |
-| DOCUMENTING | Doku wird erstellt | Warten |
-| COMPLETED | Erfolgreich abgeschlossen | - |
-| REJECTED | Plan abgelehnt | /workflow-start |
-| FAILED | Fehler aufgetreten | Fehler beheben |
+| TO DO | Neu, warte auf Planung | Automatisch → PLANNED |
+| PLANNED | Plan erstellt | User prüft, dann → CONFIRMED |
+| PLANNED AND CONFIRMED | Plan bestätigt | Automatisch → IN PROGRESS |
+| IN PROGRESS | Wird bearbeitet | Bei Fertigstellung → REVIEW |
+| REVIEW | Code-Review | Automatisch → TESTING |
+| TESTING | Automatische Tests | Automatisch → MANUAL TESTING |
+| MANUAL TESTING | User testet | User entscheidet → DOCUMENTATION |
+| DOCUMENTATION | Doku wird erstellt | Automatisch → DONE |
+| DONE | Abgeschlossen | - |
 
-### Kein Workflow gefunden
+### Kein Issue gefunden
 
-Falls kein aktiver Workflow existiert:
+Falls kein aktives Issue existiert:
 
 ```
-=== KEIN AKTIVER WORKFLOW ===
+=== KEINE AKTIVEN ISSUES ===
 
-Starte einen neuen Workflow mit:
+Alle Issues sind entweder:
+- DONE (abgeschlossen)
+- MANUAL TESTING (warte auf User)
+
+Erstelle ein neues Issue in Jira oder prüfe das Board.
+
+Oder starte mit:
 /workflow:start "Beschreibung der Aufgabe"
-
-Oder prüfe Telegram-Aufträge:
-/workflow:status --pending
 ```
 
 ## Optionen
 
-- Ohne Argument: Zeige aktuellen Workflow für dieses Projekt
-- Mit Workflow-ID: Zeige spezifischen Workflow
-- `--all`: Zeige alle aktiven Workflows
-- `--pending`: Zeige Telegram-Aufträge die noch nicht bearbeitet wurden
-- `--history`: Zeige letzte 10 abgeschlossene Workflows
+- Ohne Argument: Zeige Board-Übersicht
+- Mit Issue-Key: Zeige Issue-Details
+- `--all`: Zeige alle Issues inkl. DONE
+- `--comments`: Zeige Kommentare
 
 ## Nächste Schritte je nach Status
 
 | Status | Nächster Befehl |
 |--------|-----------------|
-| PLANNING | `/workflow:confirm` |
-| CONFIRMED | `/workflow:execute` |
-| EXECUTING | Warten oder `/workflow:execute` |
-| TESTING | `/workflow:test` |
-| COMPLETED | `/workflow:document` oder `/workflow:cleanup` |
-| FAILED | Fehler beheben, dann `/workflow:execute --retry` |
+| PLANNED | Plan prüfen, dann in Jira → CONFIRMED verschieben |
+| MANUAL TESTING | Testen, dann in Jira → DOCUMENTATION verschieben |
+| Steckengeblieben | `/workflow:start-working` für automatische Verarbeitung |
