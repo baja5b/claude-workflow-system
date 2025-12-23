@@ -387,6 +387,7 @@ async def list_tools():
 @server.call_tool()
 async def call_tool(name: str, arguments: dict):
     """Handle tool calls."""
+    global _worker
     jira = get_jira_client()
 
     try:
@@ -453,7 +454,6 @@ async def call_tool(name: str, arguments: dict):
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "jira_poll_once":
-            global _worker
             if _worker is None:
                 _worker = create_default_worker()
             results = await _worker.poll_once()
@@ -464,7 +464,6 @@ async def call_tool(name: str, arguments: dict):
             }, indent=2))]
 
         elif name == "jira_process_issue":
-            global _worker
             if _worker is None:
                 _worker = create_default_worker()
             issue_key = arguments["issue_key"]
@@ -479,7 +478,6 @@ async def call_tool(name: str, arguments: dict):
             }, indent=2))]
 
         elif name == "jira_get_workable":
-            global _worker
             if _worker is None:
                 _worker = create_default_worker()
             issues = await _worker.get_workable_issues()

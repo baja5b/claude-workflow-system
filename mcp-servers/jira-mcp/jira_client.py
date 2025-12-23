@@ -5,10 +5,37 @@ Handles authentication and API requests to Jira Cloud.
 """
 
 import os
+import json
 from typing import Optional, List, Dict, Any
 from urllib.parse import urlencode
+from pathlib import Path
 import httpx
 from dotenv import load_dotenv
+
+
+def find_repo_config() -> Optional[Dict[str, Any]]:
+    """
+    Find .claude-workflow.json in current directory or parent directories.
+    Returns config dict or None if not found.
+    """
+    current = Path.cwd()
+
+    # Search up to 10 levels
+    for _ in range(10):
+        config_file = current / ".claude-workflow.json"
+        if config_file.exists():
+            try:
+                with open(config_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return None
+
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+
+    return None
 
 
 class JiraClient:
@@ -24,10 +51,22 @@ class JiraClient:
         # Load from environment if not provided
         load_dotenv()
 
+        # Check for repo-specific config
+        repo_config = find_repo_config()
+
         self.base_url = (base_url or os.getenv("JIRA_BASE_URL", "")).rstrip("/")
         self.username = username or os.getenv("JIRA_USERNAME", "")
         self.api_token = api_token or os.getenv("JIRA_API_TOKEN", "")
-        self.project_key = project_key or os.getenv("JIRA_PROJECT_KEY", "")
+
+        # Project key priority: parameter > repo config > env
+        if project_key:
+            self.project_key = project_key
+        elif repo_config and repo_config.get("jira", {}).get("project_key"):
+            self.project_key = repo_config["jira"]["project_key"]
+        else:
+            self.project_key = os.getenv("JIRA_PROJECT_KEY", "")
+
+        self.repo_config = repo_config
 
         if not all([self.base_url, self.username, self.api_token]):
             raise ValueError(
@@ -101,14 +140,20 @@ class JiraClient:
         max_results: int = 50
     ) -> List[Dict]:
         """Search issues using JQL."""
+        # Default fields for new /search/jql endpoint (required since Dec 2024)
+        default_fields = [
+            "key", "summary", "status", "description", "issuetype",
+            "subtasks", "priority", "created", "updated", "assignee",
+            "reporter", "comment", "parent"
+        ]
+
         params = {
             "jql": jql,
-            "maxResults": max_results
+            "maxResults": max_results,
+            "fields": ",".join(fields if fields else default_fields)
         }
-        if fields:
-            params["fields"] = ",".join(fields)
 
-        result = await self.get("search", params=params)
+        result = await self.get("search/jql", params=params)
         return result.get("issues", [])
 
     async def create_issue(
@@ -250,3 +295,82 @@ class JiraClient:
         if "error" in issue:
             return None
         return issue.get("fields", {}).get("status", {}).get("name")
+
+    # --- Subtask Operations ---
+
+    async def create_subtask(
+        self,
+        parent_key: str,
+        summary: str,
+        description: Optional[str] = None,
+        project_key: Optional[str] = None
+    ) -> Dict:
+        """Create a subtask under a parent issue."""
+        project = project_key or self.project_key
+
+        data = {
+            "fields": {
+                "project": {"key": project},
+                "parent": {"key": parent_key},
+                "summary": summary,
+                "issuetype": {"name": "Sub-task"}
+            }
+        }
+
+        if description:
+            data["fields"]["description"] = {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {"type": "text", "text": description}
+                        ]
+                    }
+                ]
+            }
+
+        return await self.post("issue", data)
+
+    async def get_subtasks(self, parent_key: str) -> List[Dict]:
+        """Get all subtasks of an issue."""
+        issue = await self.get_issue(parent_key, fields=["subtasks"])
+        if "error" in issue:
+            return []
+        return issue.get("fields", {}).get("subtasks", [])
+
+    async def update_description(self, issue_key: str, description: str) -> Dict:
+        """Update issue description with plain text (converted to ADF)."""
+        adf_description = {
+            "type": "doc",
+            "version": 1,
+            "content": []
+        }
+
+        # Split by double newlines for paragraphs
+        paragraphs = description.split("\n\n")
+        for para in paragraphs:
+            if para.strip():
+                # Check if it's a heading (starts with **)
+                if para.startswith("**") and "**" in para[2:]:
+                    heading_end = para.index("**", 2)
+                    heading_text = para[2:heading_end]
+                    adf_description["content"].append({
+                        "type": "heading",
+                        "attrs": {"level": 3},
+                        "content": [{"type": "text", "text": heading_text}]
+                    })
+                    rest = para[heading_end+2:].strip()
+                    if rest:
+                        adf_description["content"].append({
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": rest}]
+                        })
+                else:
+                    adf_description["content"].append({
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": para}]
+                    })
+
+        return await self.update_issue(issue_key, {"description": adf_description})

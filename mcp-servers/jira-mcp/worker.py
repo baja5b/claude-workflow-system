@@ -35,21 +35,34 @@ class JiraWorker:
     REVIEW -> TESTING -> MANUAL TESTING -> DOCUMENTATION -> DONE
     """
 
-    # Status names (as configured in Jira)
-    STATUS_TODO = "TO DO"
-    STATUS_PLANNED = "PLANNED"
+    # Display names (German - as returned by Jira API)
+    STATUS_TODO = "Zu erledigen"
+    STATUS_PLANNED = "Geplant"
     STATUS_CONFIRMED = "PLANNED AND CONFIRMED"
-    STATUS_IN_PROGRESS = "IN PROGRESS"
-    STATUS_REVIEW = "REVIEW"
-    STATUS_TESTING = "TESTING"
-    STATUS_MANUAL_TESTING = "MANUAL TESTING"
-    STATUS_DOCUMENTATION = "DOCUMENTATION"
-    STATUS_DONE = "DONE"
+    STATUS_IN_PROGRESS = "In Arbeit"
+    STATUS_REVIEW = "Review"
+    STATUS_TESTING = "Test"
+    STATUS_MANUAL_TESTING = "Manual Testing"
+    STATUS_DOCUMENTATION = "Documentation"
+    STATUS_DONE = "Fertig"
 
-    # German status names (for compatibility)
+    # JQL names (English - required for JQL queries in Jira Cloud)
+    JQL_STATUS_TODO = "to do"
+    JQL_STATUS_PLANNED = "PLANNED"
+    JQL_STATUS_CONFIRMED = "PLANNED AND CONFIRMED"
+    JQL_STATUS_IN_PROGRESS = "In progress"
+    JQL_STATUS_REVIEW = "Review"
+    JQL_STATUS_TESTING = "Testing"
+    JQL_STATUS_MANUAL_TESTING = "Manual Testing"
+    JQL_STATUS_DOCUMENTATION = "Documentation"
+    JQL_STATUS_DONE = "Done"
+
+    # Alias map for handler registration (uppercase display names to constants)
     STATUS_MAP = {
         "ZU ERLEDIGEN": STATUS_TODO,
+        "GEPLANT": STATUS_PLANNED,
         "IN ARBEIT": STATUS_IN_PROGRESS,
+        "TEST": STATUS_TESTING,
         "FERTIG": STATUS_DONE,
     }
 
@@ -76,15 +89,15 @@ class JiraWorker:
 
     async def get_workable_issues(self) -> List[Dict[str, Any]]:
         """Get issues that need automated processing."""
-        # Statuses that need automated action
+        # Statuses that need automated action (JQL names for query)
         workable_statuses = [
-            self.STATUS_TODO,
-            self.STATUS_PLANNED,
-            self.STATUS_CONFIRMED,
-            self.STATUS_IN_PROGRESS,
-            self.STATUS_REVIEW,
-            self.STATUS_TESTING,
-            self.STATUS_DOCUMENTATION,
+            self.JQL_STATUS_TODO,
+            self.JQL_STATUS_PLANNED,
+            self.JQL_STATUS_CONFIRMED,
+            self.JQL_STATUS_IN_PROGRESS,
+            self.JQL_STATUS_REVIEW,
+            self.JQL_STATUS_TESTING,
+            self.JQL_STATUS_DOCUMENTATION,
         ]
 
         issues = await self.jira.get_project_issues_by_status(workable_statuses)
@@ -99,8 +112,8 @@ class JiraWorker:
 
         logger.info(f"Processing {issue_key} in status '{status_name}'")
 
-        # Find handler for this status
-        handler = self._handlers.get(normalized_status)
+        # Find handler for this status (handlers are stored uppercase)
+        handler = self._handlers.get(normalized_status.upper())
         if handler:
             try:
                 result = await handler(issue, self.jira)
